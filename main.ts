@@ -1,61 +1,31 @@
-// main.ts — "The Best Advice I Ever Got" (make.fun)
-// Node-only program: writes entry.txt, then self-checks it byte by byte.
-// No Deno APIs, no network, no dependencies. Plain JavaScript.
+"use strict";
 
-const fs = require("node:fs");
-const path = require("node:path");
+const fs = require("fs");
+const path = require("path");
 
-const ANSWER =
-  "When I dropped a glass on my first shift at the diner, my boss told me to warn the cook coming through the door before I apologized.";
+const ANSWER = "When I dropped a glass on my first shift at the diner, my boss told me to warn the cook coming through the door before I apologized.";
 
-const EXPECTED_CHARS = 132;
-const MAX_CHARS = 200;
+const outDir = process.env.MAKEFUN_OUTPUT_DIR || process.env.MAKEFUN_OUTPUT || "/output";
 
-const outPath = path.join(__dirname, "entry.txt");
-
-// Write the single-sentence entry exactly as specified, no trailing newline.
+fs.mkdirSync(outDir, { recursive: true });
+const outPath = path.join(outDir, "entry.txt");
 fs.writeFileSync(outPath, ANSWER, "utf8");
 
-// Best effort: also drop a copy at /output/entry.txt when the harness
-// output directory exists (the competition expects /output/entry.txt).
-if (fs.existsSync("/output")) {
-  try {
-    fs.writeFileSync(path.join("/output", "entry.txt"), ANSWER, "utf8");
-  } catch (err) {
-    // Local run: /output may not be writable. The local entry.txt is enough.
-  }
+// Self-check: baca balik byte-per-byte dan verifikasi jawaban persis.
+const written = fs.readFileSync(outPath, "utf8");
+if (written !== ANSWER) {
+  throw new Error("entry.txt does not match the expected answer byte-for-byte");
 }
-
-// Self-check: read entry.txt back byte by byte and verify the gate.
-const raw = fs.readFileSync(outPath);
-const expected = Buffer.from(ANSWER, "utf8");
-
-if (!raw.equals(expected)) {
-  console.error("FAIL: entry.txt bytes do not match the expected answer.");
-  process.exit(1);
+if (ANSWER.length !== 132) {
+  throw new Error("answer must be exactly 132 characters, got " + ANSWER.length);
 }
-
-const text = raw.toString("utf8");
-const chars = [...text].length;
-
-if (chars !== EXPECTED_CHARS) {
-  console.error(`FAIL: expected ${EXPECTED_CHARS} characters, got ${chars}.`);
-  process.exit(1);
+if (ANSWER.length < 1 || ANSWER.length > 200) {
+  throw new Error("answer outside the 1-200 character gate");
 }
-if (chars < 1 || chars > MAX_CHARS) {
-  console.error(`FAIL: character count ${chars} outside the 1-200 gate.`);
-  process.exit(1);
+const sentenceCount = ANSWER.split(".").filter(function (part) {
+  return part.trim().length > 0;
+}).length;
+if (sentenceCount !== 1) {
+  throw new Error("answer must be exactly 1 sentence, got " + sentenceCount);
 }
-if (text.trim().length === 0) {
-  console.error("FAIL: entry is only whitespace.");
-  process.exit(1);
-}
-
-const terminators = (text.match(/[.!?]/g) || []).length;
-if (terminators !== 1 || !text.endsWith(".")) {
-  console.error("FAIL: entry must be exactly one sentence.");
-  process.exit(1);
-}
-
-console.log(`OK: entry.txt verified — ${chars} characters, 1 sentence.`);
-console.log(text);
+console.log("OK: entry.txt written to " + outPath + " (" + ANSWER.length + " chars, 1 sentence)");
